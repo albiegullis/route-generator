@@ -12,7 +12,6 @@ function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number
 }
 
 export default function Map() {
-  // THE TYPESCRIPT FIXES: Added <any> and the coordinate types
   const [routeData, setRouteData] = useState<any>(null);
   const [startCoords, setStartCoords] = useState<{lat: number, lng: number} | null>(null);
   
@@ -159,8 +158,8 @@ export default function Map() {
             onChange={(e) => setTerrain(e.target.value)}
             className="w-full bg-gray-50 border border-gray-200 rounded p-2 text-sm font-bold text-black focus:outline-none focus:ring-1 focus:ring-black cursor-pointer"
           >
-            <option value="road">Strictly Paved (Roads & Sidewalks)</option>
-            <option value="trail">Nature & Dirt (Trails & Parks)</option>
+            <option value="road">Road</option>
+            <option value="trail">Off Road</option>
           </select>
         </div>
 
@@ -216,7 +215,6 @@ export default function Map() {
         {routeData && !errorMsg && (
           <GeoJSON 
             data={routeData} 
-            // THE TYPESCRIPT FIX: Added question marks here
             key={`${startCoords?.lat}-${startCoords?.lng}-${routeStats.actualDistance}`} 
             style={{
               color: '#FC4C02', 
