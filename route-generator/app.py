@@ -11,6 +11,11 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 API_KEY = os.environ.get("ORS_API_KEY")
 client = openrouteservice.Client(key=API_KEY, retry_over_query_limit=False)
 
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    ai_model = genai.GenerativeModel('gemini-1.5-flash')
+
 @app.get("/api/route")
 def generate_route(distance: int = 5000, lat: float = 50.885, lon: float = -1.246, terrain: str = 'road'):
     
