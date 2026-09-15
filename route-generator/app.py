@@ -2,12 +2,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import openrouteservice
 import math
+import os
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # Your API key
-API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjY0MGM0NTVjMTE3OTQ5MDY4NGI0MjkzYjg5NjY2MjQ4IiwiaCI6Im11cm11cjY0In0=' 
+API_KEY = os.environ.get("ORS_API_KEY")
 client = openrouteservice.Client(key=API_KEY, retry_over_query_limit=False)
 
 @app.get("/api/route")
