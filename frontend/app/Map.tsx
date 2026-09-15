@@ -12,14 +12,15 @@ function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number
 }
 
 export default function Map() {
-  const [routeData, setRouteData] = useState(null);
-  const [startCoords, setStartCoords] = useState(null);
+  // THE TYPESCRIPT FIXES: Added <any> and the coordinate types
+  const [routeData, setRouteData] = useState<any>(null);
+  const [startCoords, setStartCoords] = useState<{lat: number, lng: number} | null>(null);
   
   const [displayDistance, setDisplayDistance] = useState("5.00");
   const [unit, setUnit] = useState("km"); 
-  const [terrain, setTerrain] = useState("road"); // UPDATED TO "road"
+  const [terrain, setTerrain] = useState("road"); 
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
   const [routeStats, setRouteStats] = useState({ actualDistance: 0, ascent: 0 });
 
@@ -151,7 +152,6 @@ export default function Map() {
           />
         </div>
 
-        {/* THE UPDATED TERRAIN SELECTOR */}
         <div className="mt-2">
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">Terrain</label>
           <select 
@@ -216,7 +216,8 @@ export default function Map() {
         {routeData && !errorMsg && (
           <GeoJSON 
             data={routeData} 
-            key={`${startCoords.lat}-${startCoords.lng}-${routeStats.actualDistance}`} 
+            // THE TYPESCRIPT FIX: Added question marks here
+            key={`${startCoords?.lat}-${startCoords?.lng}-${routeStats.actualDistance}`} 
             style={{
               color: '#FC4C02', 
               weight: 5,
