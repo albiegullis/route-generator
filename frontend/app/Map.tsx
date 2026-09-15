@@ -34,7 +34,7 @@ export default function Map() {
       setLoading(true);
       setErrorMsg(null); 
       
-      fetch(`http://127.0.0.1:8000/api/route?distance=${targetMeters}&lat=${startCoords.lat}&lon=${startCoords.lng}&terrain=${terrain}`)
+      fetch(`https://fareham-route-api.onrender.com/api/route?distance=${targetMeters}&lat=${startCoords.lat}&lon=${startCoords.lng}&terrain=${terrain}`)
         .then(async (res) => {
           if (!res.ok) {
             const errorData = await res.json().catch(() => ({}));
