@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, GeoJSON, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+// THE NEW IMPORTS FOR THE CHART
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
   useMapEvents({
@@ -101,6 +103,16 @@ export default function Map() {
     
   const elevationUnit = unit === "km" ? "m" : "ft";
 
+  // GENERATE CHART DATA FROM THE ROUTE COORDINATES
+  let chartData: any[] = [];
+  if (routeData && !errorMsg) {
+    const coords = routeData.features[0].geometry.coordinates;
+    chartData = coords.map((coord: number[], index: number) => ({
+      point: index, // Using the point index for the X-axis
+      altitude: Math.round(unit === "km" ? coord[2] : coord[2] * 3.28084) // Handle metric/imperial
+    }));
+  }
+
   return (
     <div className="h-screen w-full relative">
       <div className="absolute top-4 left-4 z-[1000] bg-white p-4 rounded-xl shadow-xl w-80 space-y-4">
@@ -186,6 +198,33 @@ export default function Map() {
                 </p>
               </div>
             </div>
+            
+            {/* THE NEW ELEVATION CHART */}
+            {chartData.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Elevation Profile</p>
+                <div className="h-24 w-full bg-gray-50 rounded-lg overflow-hidden">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorAltitude" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#000000" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#000000" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="point" hide />
+                      <YAxis domain={['dataMin - 10', 'dataMax + 10']} hide />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '8px', fontSize: '12px', padding: '4px 8px' }}
+                        labelFormatter={() => ''}
+                        formatter={(value: any) => [`${value} ${elevationUnit}`, 'Altitude']}
+                      />
+                      <Area type="monotone" dataKey="altitude" stroke="#000000" strokeWidth={2} fillOpacity={1} fill="url(#colorAltitude)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
             
             <button
               onClick={downloadGPX}
