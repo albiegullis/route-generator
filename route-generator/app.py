@@ -20,12 +20,12 @@ def generate_route(distance: int = 5000, lat: float = 50.885, lon: float = -1.24
         "coordinates": [[lon, lat]]  
     }
 
-    # Setup profile conditions outside the loop
+    # THE FIX 1: We use 'foot-walking' to guarantee pedestrian safety and pavements.
     if terrain == 'road':
         req_kwargs["profile"] = 'wheelchair'
         profile_params = None
     else:
-        req_kwargs["profile"] = 'foot-hiking'
+        req_kwargs["profile"] = 'foot-walking'
         profile_params = {
             "weightings": {
                 "green": 1,
@@ -35,19 +35,19 @@ def generate_route(distance: int = 5000, lat: float = 50.885, lon: float = -1.24
 
     print(f"Calculating {terrain} round trip for target: {distance}m...")
     
-    # We will adjust this target if the engine overshoots
     current_target = distance 
     best_route = None
     closest_diff = float('inf')
 
-    try:
-        # Give the engine 3 attempts to nail the distance
-        for attempt in range(3):
+    # Give the engine 3 attempts
+    for attempt in range(3):
+        try:
             route_options = {
                 "round_trip": {
                     "length": int(current_target),
                     "points": 5, 
-                    "seed": 0    
+                    # THE FIX 2: Change the seed (direction) on every attempt!
+                    "seed": attempt * 42 
                 }
             }
             
@@ -64,28 +64,32 @@ def generate_route(distance: int = 5000, lat: float = 50.885, lon: float = -1.24
             
             print(f"Attempt {attempt + 1}: Requested {int(current_target)}m -> Got {actual_distance}m")
             
-            # Save the closest route we find
             if diff < closest_diff:
                 closest_diff = diff
                 best_route = route_data
                 
-            # If the distance is within 10% of the target, it's a success!
             if diff <= (distance * 0.10):
                 print("Distance is within 10% tolerance. Nailed it!")
                 return route_data
                 
-            # If it missed, calculate the ratio and adjust the target for the next attempt
             ratio = distance / actual_distance
             current_target = current_target * ratio
             
+        except openrouteservice.exceptions.ApiError as e:
+            # If ORS hits a dead-end, catch it, print it, and let the loop try the next seed!
+            print(f"Attempt {attempt + 1} Failed: Engine hit a dead end, rotating loop direction...")
+            continue
+        except Exception as e:
+            print(f"General Error on Attempt {attempt + 1}: {e}")
+            continue
+            
+    # After 3 attempts, return the best valid route we found
+    if best_route:
         print(f"Settling for closest attempt. Difference: {closest_diff}m")
         return best_route
         
-    except openrouteservice.exceptions.ApiError as e:
-        if "Rate limit" in str(e) or "429" in str(e):
-            raise HTTPException(status_code=429, detail="API rate limit reached. Please wait 60 seconds.")
-        print(f"ORS API Error: {e}")
-        raise HTTPException(status_code=400, detail="Could not generate a loop from this location.")
-    except Exception as e:
-        print(f"General Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # If all 3 seeds completely failed to find a path
+    raise HTTPException(
+        status_code=400, 
+        detail="Cannot find a continuous loop from this location. Try clicking slightly closer to a main path."
+    )
