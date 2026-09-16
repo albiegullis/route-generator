@@ -76,12 +76,28 @@ def clean_route_with_ai(route_geojson, target_distance_meters: int):
 @app.get("/api/route")
 def generate_route(distance: int = 5000, lat: float = 50.885, lon: float = -1.246, terrain: str = 'road'):
     
-    if terrain == 'road':
-        ors_profile = 'wheelchair'  # Guarantees paved surfaces
-    else:
-        ors_profile = 'foot-hiking' # Trails and green spaces
+    # 1. SET THE PROFILES AND ADVANCED OPTIONS
+    req_kwargs = {
+        "format": "geojson",
+        "elevation": True
+    }
 
-    print(f"Calculating {ors_profile} route for target: {distance}m...")
+    if terrain == 'road':
+        req_kwargs["profile"] = 'wheelchair' # Guarantees paved, step-free surfaces
+        # No extra options needed; we just want smooth pavement
+    else:
+        req_kwargs["profile"] = 'foot-hiking' # Trails and dirt paths
+        # THE MAGIC TRICK: Force the engine to hunt for nature and avoid cars
+        req_kwargs["options"] = {
+            "profile_params": {
+                "weightings": {
+                    "green": 1,
+                    "quiet": 1
+                }
+            }
+        }
+
+    print(f"Calculating {terrain} route for target: {distance}m...")
     
     angle_sets = [
         [0, 60, 120, 180, 240, 300],    # Hexagon 1
@@ -107,15 +123,13 @@ def generate_route(distance: int = 5000, lat: float = 50.885, lon: float = -1.24
                     waypoints.append([point_lon, point_lat])
                     
                 route_coords = [[lon, lat]] + waypoints + [[lon, lat]]
-                search_radiuses = [-1] * len(route_coords)
                 
-                route_data = client.directions(
-                    route_coords, 
-                    profile=ors_profile,
-                    format='geojson', 
-                    elevation=True,
-                    radiuses=search_radiuses
-                )
+                # Add our dynamic coordinates and search radiuses to the request arguments
+                req_kwargs["coordinates"] = route_coords
+                req_kwargs["radiuses"] = [-1] * len(route_coords)
+                
+                # 2. FIRE THE REQUEST WITH THE NEW OPTIONS
+                route_data = client.directions(**req_kwargs)
                 
                 actual_distance = route_data['features'][0]['properties']['summary']['distance']
                 diff = abs(actual_distance - distance)
@@ -126,14 +140,12 @@ def generate_route(distance: int = 5000, lat: float = 50.885, lon: float = -1.24
                     
                 if diff <= 100:
                     print(f"Nailed it! Actual: {actual_distance}m")
-                    # AI Call Point 1
                     return clean_route_with_ai(route_data, distance)
                     
                 ratio = distance / actual_distance
                 current_target = current_target * ratio
                 
             print(f"Settling for closest attempt. Difference: {closest_diff}m")
-            # AI Call Point 2
             return clean_route_with_ai(best_route, distance)
             
         except openrouteservice.exceptions.ApiError as e:
