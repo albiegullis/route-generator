@@ -23,7 +23,7 @@ export default function Map() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
-  const [routeStats, setRouteStats] = useState({ actualDistance: 0, ascent: 0 });
+ const [routeStats, setRouteStats] = useState({ actualDistance: 0, ascent: 0, descent: 0 });
 
   useEffect(() => {
     if (!startCoords) return;
@@ -47,10 +47,27 @@ export default function Map() {
         .then((data) => {
           if (data && data.features && data.features.length > 0) {
             setRouteData(data);
+            
+            // 1. Manually calculate cumulative ascent and descent
+            const coords = data.features[0].geometry.coordinates;
+            let totalAscent = 0;
+            let totalDescent = 0;
+            
+            for (let i = 1; i < coords.length; i++) {
+              const prevAlt = coords[i-1][2] || 0;
+              const currAlt = coords[i][2] || 0;
+              const diff = currAlt - prevAlt;
+              
+              if (diff > 0) totalAscent += diff;
+              if (diff < 0) totalDescent += Math.abs(diff);
+            }
+
+            // 2. Update the stats
             const summary = data.features[0].properties.summary;
             setRouteStats({
               actualDistance: summary.distance || 0,
-              ascent: summary.ascent || 0
+              ascent: totalAscent,
+              descent: totalDescent
             });
           } else {
             throw new Error("Received invalid map data from the server.");
@@ -100,6 +117,10 @@ export default function Map() {
   const elevationDisplay = unit === "km"
     ? Math.round(routeStats.ascent)
     : Math.round(routeStats.ascent * 3.28084); 
+
+  const descentDisplay = unit === "km"
+    ? Math.round(routeStats.descent)
+    : Math.round(routeStats.descent * 3.28084);
     
   const elevationUnit = unit === "km" ? "m" : "ft";
 
@@ -184,17 +205,23 @@ export default function Map() {
         {routeData && !errorMsg && (
           <div className="mt-4 pt-4 border-t border-gray-100">
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Actual Route Stats</h2>
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="bg-gray-50 p-2 rounded-lg">
-                <p className="text-xs text-gray-500">Distance</p>
-                <p className="font-bold text-black text-lg">
-                  {actualDistanceDisplay} <span className="text-sm font-normal text-gray-500">{unit}</span>
+<div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="bg-gray-50 p-2 rounded-lg text-center">
+                <p className="text-[10px] uppercase font-semibold text-gray-500">Distance</p>
+                <p className="font-bold text-black text-sm">
+                  {actualDistanceDisplay} <span className="text-xs font-normal text-gray-500">{unit}</span>
                 </p>
               </div>
-              <div className="bg-gray-50 p-2 rounded-lg">
-                <p className="text-xs text-gray-500">Elevation Gain</p>
-                <p className="font-bold text-black text-lg">
-                  {elevationDisplay} <span className="text-sm font-normal text-gray-500">{elevationUnit}</span>
+              <div className="bg-gray-50 p-2 rounded-lg text-center">
+                <p className="text-[10px] uppercase font-semibold text-gray-500">Ascent</p>
+                <p className="font-bold text-green-600 text-sm">
+                  +{elevationDisplay} <span className="text-xs font-normal text-gray-500">{elevationUnit}</span>
+                </p>
+              </div>
+              <div className="bg-gray-50 p-2 rounded-lg text-center">
+                <p className="text-[10px] uppercase font-semibold text-gray-500">Descent</p>
+                <p className="font-bold text-red-500 text-sm">
+                  -{descentDisplay} <span className="text-xs font-normal text-gray-500">{elevationUnit}</span>
                 </p>
               </div>
             </div>
