@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, GeoJSON, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-// THE NEW IMPORTS FOR THE CHART
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import Link from "next/link"; // <-- Added Next.js Link import
 
 function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
   useMapEvents({
@@ -23,7 +23,7 @@ export default function Map() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
- const [routeStats, setRouteStats] = useState({ actualDistance: 0, ascent: 0, descent: 0 });
+  const [routeStats, setRouteStats] = useState({ actualDistance: 0, ascent: 0, descent: 0 });
 
   useEffect(() => {
     if (!startCoords) return;
@@ -129,13 +129,32 @@ export default function Map() {
   if (routeData && !errorMsg) {
     const coords = routeData.features[0].geometry.coordinates;
     chartData = coords.map((coord: number[], index: number) => ({
-      point: index, // Using the point index for the X-axis
-      altitude: Math.round(unit === "km" ? coord[2] : coord[2] * 3.28084) // Handle metric/imperial
+      point: index, 
+      altitude: Math.round(unit === "km" ? coord[2] : coord[2] * 3.28084) 
     }));
   }
 
   return (
     <div className="h-screen w-full relative">
+      
+      {/* --- NEW: Floating Top Navigation Toggle --- */}
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] w-full max-w-md px-4">
+        <div className="flex bg-white/90 backdrop-blur-md rounded-full p-1 shadow-lg border border-gray-200">
+          <Link 
+            href="/" 
+            className="flex-1 text-center py-2.5 rounded-full bg-black text-white font-bold transition-all shadow-sm text-sm"
+          >
+             Route Plotter
+          </Link>
+          <Link 
+            href="/gear" 
+            className="flex-1 text-center py-2.5 rounded-full text-gray-500 hover:text-black font-semibold transition-all text-sm"
+          >
+             Compare Gear
+          </Link>
+        </div>
+      </div>
+
       <div className="absolute top-4 left-4 z-[1000] bg-white p-4 rounded-xl shadow-xl w-80 space-y-4">
         <div className="flex justify-between items-center">
           <h1 className="font-bold text-lg text-gray-800">Route Generator</h1>
@@ -266,7 +285,7 @@ export default function Map() {
       </div>
 
       {loading && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] bg-black text-white px-6 py-2 rounded-full font-bold shadow-lg text-sm">
+        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-[1000] bg-black text-white px-6 py-2 rounded-full font-bold shadow-lg text-sm">
           Calculating Route...
         </div>
       )}
