@@ -14,45 +14,72 @@ client = openrouteservice.Client(key=API_KEY, retry_over_query_limit=False)
 @app.get("/api/route")
 def generate_route(distance: int = 5000, lat: float = 50.885, lon: float = -1.246, terrain: str = 'road'):
     
-    # 1. SET THE PROFILES AND STARTING POINT
     req_kwargs = {
         "format": "geojson",
         "elevation": True,
-        "coordinates": [[lon, lat]]  # ONLY send the starting point!
+        "coordinates": [[lon, lat]]  
     }
 
-    # 2. THE SECRET ROUND-TRIP ALGORITHM
-    route_options = {
-        "round_trip": {
-            "length": distance,
-            "points": 5, # Tells the engine to generate a smooth circular loop
-            "seed": 0    # (Optional) Randomize this to generate different loops later
-        }
-    }
-
+    # Setup profile conditions outside the loop
     if terrain == 'road':
-        req_kwargs["profile"] = 'wheelchair' # Paved only
+        req_kwargs["profile"] = 'wheelchair'
+        profile_params = None
     else:
-        req_kwargs["profile"] = 'foot-hiking' # Trails and dirt
-        # Force the engine to hunt for green spaces
-        route_options["profile_params"] = {
+        req_kwargs["profile"] = 'foot-hiking'
+        profile_params = {
             "weightings": {
                 "green": 1,
                 "quiet": 1
             }
         }
-        
-    req_kwargs["options"] = route_options
 
     print(f"Calculating {terrain} round trip for target: {distance}m...")
     
+    # We will adjust this target if the engine overshoots
+    current_target = distance 
+    best_route = None
+    closest_diff = float('inf')
+
     try:
-        route_data = client.directions(**req_kwargs)
-        
-        actual_distance = route_data['features'][0]['properties']['summary']['distance']
-        print(f"Generated Route! Target: {distance}m, Actual: {actual_distance}m")
-        
-        return route_data
+        # Give the engine 3 attempts to nail the distance
+        for attempt in range(3):
+            route_options = {
+                "round_trip": {
+                    "length": int(current_target),
+                    "points": 5, 
+                    "seed": 0    
+                }
+            }
+            
+            if profile_params:
+                route_options["profile_params"] = profile_params
+                
+            req_kwargs["options"] = route_options
+            
+            # Fire the request
+            route_data = client.directions(**req_kwargs)
+            
+            actual_distance = route_data['features'][0]['properties']['summary']['distance']
+            diff = abs(actual_distance - distance)
+            
+            print(f"Attempt {attempt + 1}: Requested {int(current_target)}m -> Got {actual_distance}m")
+            
+            # Save the closest route we find
+            if diff < closest_diff:
+                closest_diff = diff
+                best_route = route_data
+                
+            # If the distance is within 10% of the target, it's a success!
+            if diff <= (distance * 0.10):
+                print("Distance is within 10% tolerance. Nailed it!")
+                return route_data
+                
+            # If it missed, calculate the ratio and adjust the target for the next attempt
+            ratio = distance / actual_distance
+            current_target = current_target * ratio
+            
+        print(f"Settling for closest attempt. Difference: {closest_diff}m")
+        return best_route
         
     except openrouteservice.exceptions.ApiError as e:
         if "Rate limit" in str(e) or "429" in str(e):
